@@ -9,7 +9,11 @@ const UserSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true,
-  }
+  },
+  transcripts: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transcript'
+  }]
 })
 
 module.exports = mongoose.model('User', UserSchema, 'Users');
