@@ -63,7 +63,11 @@ app.post('/login', (req, res) => {
     const user = doc._doc;
     if(!user) throw new Error('A user with that username does not exist');
     else {
-      if(bcrypt.compareSync(req.body.password, user.password)) res.status(200).json({token: jwt.sign({ id: user.id }, process.env.JWT_SECRET)});
+      if(bcrypt.compareSync(req.body.password, user.password)) {
+        const response = { ...user, _id: doc.id, token: jwt.sign({ id: user.id }, process.env.JWT_SECRET)}
+        delete response.password;
+        return res.status(200).json(response);
+      }
       else throw new Error('Incorrect password');
     }
   })
