@@ -55,7 +55,7 @@ router.post('/login', (req, res) => {
     else {
       const user = doc._doc;
       if(bcrypt.compareSync(req.body.password, user.password)) {
-        const response = { ...user, _id: doc.id, token: jwt.sign({ id: user.id }, process.env.JWT_SECRET)}
+        const response = { ...user, _id: doc.id, token: jwt.sign({ id: doc.id }, process.env.JWT_SECRET)}
         delete response.password;
         return res.status(200).json(response);
       }
