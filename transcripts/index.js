@@ -15,7 +15,11 @@ router.get("/mine", protected, (req, res) => {
       if (!user)
         return res.status(404).json({ message: "Unable to find user!" });
 
-      return res.status(200).json(user._doc.transcripts);
+      const response = user._doc.transcripts.map(async transcript => {
+        return await Transcript.findById(transcript);
+      })
+
+      return res.status(200).json(response);
     })
     .catch(err => {
       return res.status(500).json(err);
