@@ -52,6 +52,8 @@ router.post("/", protected, (req, res) => {
     data: req.body.data
   });
 
+  console.log(req.user);
+
   User.findById(req.user.id)
     .then(user => {
       if (!user) throw new Error("User could not be found!");
