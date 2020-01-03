@@ -10,38 +10,17 @@ const router = express.Router();
 
 // Get all scripts belonging to token bearer
 router.get("/mine", protected, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
 
-  try  {
-  const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "Unable to find user!" });
 
-  if(!user) return res.status(404).json({ message: "Unable to find user!" });
+    const response = await Promise.all(user._doc.transcripts.map(transcript => Transcript.findById(transcript)));
 
-  const response = [];
-
-  await user._doc.transcripts.forEach(async (transcript, index) => {
-    const data = await Transcript.findById(transcript);
-    response.push(data);
-    if(index === user._doc.transcripts.length -1)
-      return res.status(200).json(response);
-  })
-} catch (err) {
-  return res.status(500).json(err.message);
-}
-
-  // User.findById(req.user.id)
-  //   .then(user => {
-  //     if (!user)
-  //       return res.status(404).json({ message: "Unable to find user!" });
-
-  //     const response = user._doc.transcripts.map(transcript => {
-  //       Transcript.findById(transcript).then(res => res);
-  //     })
-
-  //     return res.status(200).json(response);
-  //   })
-  //   .catch(err => {
-      
-  //   });
+    return res.status(200).json(response);
+  } catch (err) {
+    return res.status(500).json(err.message);
+  }
 });
 
 // Get a transcript by id
@@ -119,17 +98,21 @@ router.put("/:id", protected, (req, res) => {
 router.delete("/:id", protected, (req, res) => {
   Transcript.findById(req.params.id)
     .then(transcript => {
-      if(!transcript) return res.status(404).json({message: "A transcript with that ID does not exist!"});
+      if (!transcript)
+        return res
+          .status(404)
+          .json({ message: "A transcript with that ID does not exist!" });
       if (!transcript._doc.creator === req.user.id)
         return res
           .status(401)
           .json({ message: "You may not delete another user's transcript" });
 
       return Transcript.deleteOne({ _id: transcript.id });
-      
-    }).then(() => {
+    })
+    .then(() => {
       return User.findById(req.user.id);
-    }).then(user => {
+    })
+    .then(user => {
       const newTranscripts = user._doc.transcripts.filter(transcript => {
         return transcript.toString() !== req.params.id;
       });
