@@ -9,21 +9,39 @@ const User = require("../models/User");
 const router = express.Router();
 
 // Get all scripts belonging to token bearer
-router.get("/mine", protected, (req, res) => {
-  User.findById(req.user.id)
-    .then(user => {
-      if (!user)
-        return res.status(404).json({ message: "Unable to find user!" });
+router.get("/mine", protected, async (req, res) => {
 
-      const response = user._doc.transcripts.map(async transcript => {
-        return await Transcript.findById(transcript);
-      })
+  try  {
+  const user = await User.findById(req.user.id);
 
+  if(!user) return res.status(404).json({ message: "Unable to find user!" });
+
+  const response = [];
+
+  await user._doc.transcripts.forEach(async (transcript, index) => {
+    const data = await Transcript.findById(transcript);
+    response.push(data);
+    if(index === user._doc.transcripts.length -1)
       return res.status(200).json(response);
-    })
-    .catch(err => {
-      return res.status(500).json(err);
-    });
+  })
+} catch (err) {
+  return res.status(500).json(err.message);
+}
+
+  // User.findById(req.user.id)
+  //   .then(user => {
+  //     if (!user)
+  //       return res.status(404).json({ message: "Unable to find user!" });
+
+  //     const response = user._doc.transcripts.map(transcript => {
+  //       Transcript.findById(transcript).then(res => res);
+  //     })
+
+  //     return res.status(200).json(response);
+  //   })
+  //   .catch(err => {
+      
+  //   });
 });
 
 // Get a transcript by id
