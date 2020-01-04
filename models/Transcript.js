@@ -38,12 +38,14 @@ const TranscriptSchema = new mongoose.Schema({
     }
   ],
   // Who else has access to this transcript?
+  // *Using emails here to account for users that do not have
+  // an account yet
   sharedWith: [
     {
-      // User ID
+      // User id
       user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User"
+        ref: 'User',
       },
       // Can this user edit this transcript?
       edit: {

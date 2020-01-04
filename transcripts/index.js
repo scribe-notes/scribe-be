@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const protected = require("../auth/protected");
 const checkFields = require("../util/checkFields");
 const updateFields = require("../util/updateFields");
@@ -53,21 +54,43 @@ router.get("/:id", protected, (req, res) => {
 
 // Post a new transcript
 router.post("/", protected, async (req, res) => {
-  const requiredFields = ["title"];
-  const error = checkFields(requiredFields, req.body);
-  if (error) return res.status(400).json({ message: error });
-
-  const transcript = new Transcript({
-    title: req.body.title,
-    creator: req.user.id,
-    recordingLength: req.body.recordingLength ? req.body.recordingLength : 0,
-    data: req.body.data ? req.body.data : null,
-    isGroup: req.body.isGroup ? req.body.isGroup : false,
-    group: req.body.group ? req.body.group : null,
-    sharedWith: req.body.sharedWith ? req.body.sharedWith : null
-  });
   try {
-    const user = await User.findById(req.user.id);
+    const requiredFields = ["title"];
+
+    // If this isn't a container/group of transcripts, require the following
+    if (!req.body.isGroup) requiredFields.push("data", "recordingLength");
+
+    const error = checkFields(requiredFields, req.body);
+    if (error) throw new Error(error);
+
+    // A parsed list of invited users
+    let sharedWith = [];
+
+    // Make sure the provided sharedWith array contains valid data
+    if (req.body.sharedWith && req.body.sharedWith.length > 0) {
+      req.body.sharedWith.forEach(user => {
+        if (checkFields(["userId", "edit"], user))
+          throw new Error(
+            "Bad input: sharedWith should be an array of objects, each with valid fields `userId`(String) and `edit`(bool)"
+          );
+        else {
+          // Make sure not to add the owner into the shared list
+          if(user.userId !== req.user.id) sharedWith.push({ user: user.userId, edit: user.edit });
+        } 
+      });
+    } else sharedWith = [];
+
+    const transcript = new Transcript({
+      title: req.body.title,
+      creator: req.user.id,
+      recordingLength: req.body.recordingLength ? req.body.recordingLength : 0,
+      data: req.body.data ? req.body.data : null,
+      isGroup: req.body.isGroup ? req.body.isGroup : false,
+      group: req.body.group ? req.body.group : null,
+      sharedWith
+    });
+
+    let user = await User.findById(req.user.id);
 
     if (!user) throw new Error("User could not be found!");
 
@@ -76,12 +99,12 @@ router.post("/", protected, async (req, res) => {
     if (transcript.sharedWith && transcript.sharedWith.length > 0) {
       // Add this transcript to all users you've shared it with
       await Promise.all(
-        transcript.sharedWith.forEach(async (userId, index) => {
-          await User.findById(userId, async (err, doc) => {
-            if (err) {
+        transcript.sharedWith.map(async (userId, index) => {
+          await User.findById(userId.user, async (err, doc) => {
+            if (err || !doc) {
               transcript.sharedWith.splice(index, 1);
               console.error(
-                `User with id ${userId} not found. Removing from transcript.`
+                `User with id ${userId.user} not found. Removing from transcript.`
               );
             } else {
               doc.transcripts.push(transcript);
@@ -92,12 +115,13 @@ router.post("/", protected, async (req, res) => {
       );
     }
 
-    await user.save();
+    user = await user.save();
 
     await transcript.save();
 
     return res.status(201).json(user.transcripts);
   } catch (err) {
+    console.error(err);
     return res.status(500).json(err.message);
   }
 });
@@ -106,10 +130,18 @@ router.post("/", protected, async (req, res) => {
 router.put("/:id", protected, (req, res) => {
   Transcript.findById(req.params.id)
     .then(transcript => {
-      if (!transcript._doc.creator === req.user.id)
+      const isOwner = transcript._doc.creator.toString() === req.user.id;
+
+      const invite = transcript._doc.sharedWith.find(
+        inv => inv.userId.toString() === req.user.id
+      );
+
+      const isAuthorized = invite && invite.edit;
+
+      if (!isOwner && !isAuthorized)
         return res
           .status(401)
-          .json({ message: "You may not modify another user's transcript." });
+          .json({ message: "You may not modify this transcript." });
 
       const fields = ["title", "data"];
 
@@ -125,11 +157,104 @@ router.put("/:id", protected, (req, res) => {
     });
 });
 
-// Add member to transcript
+// Add member(s) to transcript
+router.post("/share/:id", protected, async (req, res) => {
+  // Check that req.body.users exists
+  try {
+    if (checkFields(["users"], req.body))
+      throw new Error(
+        "Please provide a users array of objects, each with fields `userId`(String) and `edit`(bool)"
+      );
+
+    // Each user element should be an object:
+    /*
+    {
+      userId: 5e01h5.92mdmdfsae10nda15f,
+      edit: false
+    }
+  */
+    req.body.users.forEach(user => {
+      if (checkFields(["userId", "edit"], user))
+        throw new Error(
+          "Bad input: Please provide a users array of objects, each with fields `userId`(String) and `edit`(bool)"
+        );
+    });
+
+    // Add user into transcript `sharedWith` list
+    // and check for duplicates beforehand
+    let transcript = await Transcript.findById(req.params.id);
+
+    if (!transcript)
+      throw new Error("A transcript with that ID could not be found.");
+
+    // Make sure this is the owner making this request
+    if (!transcript._doc.creator.toString() === req.user.id)
+      return res.status(401).json({
+        message: "You may not add members to another user's transcript."
+      });
+
+    const preexisting = transcript._doc.sharedWith.map(share => share.user.toString());
+
+    // List of users verified to exist
+    const users = [];
+
+    await Promise.all(req.body.users.map(async user => {
+      const doc = await User.findById(user.userId);
+      if (doc && !preexisting.includes(user.userId) && user.userId !== req.user.id) {
+        users.push(doc);
+        transcript.sharedWith.push({
+          user: user.userId,
+          edit: user.edit
+        });
+      }
+    }));
+
+    // console.log(users);
+
+    transcript = await transcript.save();
+
+    // Add transcript id into all users listed that exist
+    // and check for duplicates beforehand
+    await Promise.all(
+      users.map(async user => {
+        if (!user._doc.transcripts.includes(transcript.id)) {
+          console.log("adding transcript to user...");
+          user.transcripts.push(transcript);
+          await user.save();
+        }
+      })
+    );
+
+    // Return new transcript doc
+    return res.status(200).json(transcript);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: err.message });
+  }
+});
 
 // Change member permissions on transcript
+router.put("/share/:id", (req, res) => {
+  // Check that req.body.userId and req.body.edit exist
+  // req.body should look like this:
+  /*
+    {
+      userId: 5e01h5.92mdmdfsae10nda15f,
+      edit: false
+    }
+  */
+  // Look for user with that id in the transcript,
+  // then update their permission accordingly
+  // Return new transcript doc
+});
 
 // Remove member from transcript
+router.delete("/share/:id", (req, res) => {
+  // Check that req.body.userId exists
+  // Remove the transcript from that user's doc
+  // Then remove user from the transcript doc
+  // Return new transcript doc
+});
 
 // Delete a transcript
 router.delete("/:id", protected, async (req, res) => {
@@ -151,14 +276,16 @@ router.delete("/:id", protected, async (req, res) => {
     targets.push(req.user.id);
 
     // Remove reference of this transcript from all users
-    await Promise.all(targets.forEach(async userId => {
-      const target = await User.findById(userId);
-      const newTranscripts = target._doc.transcripts.filter(transcript => {
-        return transcript.toString() !== req.params.id;
-      });
-      target.transcripts = newTranscripts;
-      await target.save();
-    }))
+    await Promise.all(
+      targets.forEach(async userId => {
+        const target = await User.findById(userId);
+        const newTranscripts = target._doc.transcripts.filter(transcript => {
+          return transcript.toString() !== req.params.id;
+        });
+        target.transcripts = newTranscripts;
+        await target.save();
+      })
+    );
 
     // Now we may safely delete the transcript
     await Transcript.deleteOne({ _id: transcript.id });
