@@ -4,12 +4,18 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+const checkFields = require('../util/checkFields');
+
 const router = express.Router();
 
 // Create user
 router.post('/users/', (req, res) => {
-  if(!req.body.username || !req.body.username.trim()) {
-    return res.status(400).json({message: "A username is required"})
+  const requiredFields = ['username', 'email', 'password']
+
+  const error = checkFields(requiredFields, req.body);
+
+  if(error) {
+    return res.status(400).json({message: error})
   }
   
   if(!req.body.password || req.body.password.length < 8) {
@@ -18,6 +24,7 @@ router.post('/users/', (req, res) => {
 
   const user = new User({
     username: req.body.username,
+    email: req.body.email,
     password: bcrypt.hashSync(req.body.password, 12)
   })
 

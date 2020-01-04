@@ -30,10 +30,14 @@ router.get("/:id", protected, (req, res) => {
       return res
         .status(404)
         .json({ message: "A transcript with that ID does not exist!" });
-    if (transcript._doc.creator.toString() !== req.user.id) {
+
+    // Users with access to this transcript
+    const whitelist = transcript._doc.sharedWith.map(userId => {userId.toString()});
+
+    if (transcript._doc.creator.toString() !== req.user.id || !whitelist.includes(req.user.id)) {
       return res
         .status(401)
-        .json({ message: "You may not read another user's transcript." });
+        .json({ message: "You do not have access to this transcript" });
     }
 
     return res.status(200).json(transcript._doc);
@@ -42,24 +46,30 @@ router.get("/:id", protected, (req, res) => {
 
 // Post a new transcript
 router.post("/", protected, (req, res) => {
-  const requiredFields = ["title", "recordingLength", "data"];
+  const requiredFields = ["title"];
   const error = checkFields(requiredFields, req.body);
   if (error) return res.status(400).json({ message: error });
 
   const transcript = new Transcript({
     title: req.body.title,
     creator: req.user.id,
-    recordingLength: req.body.recordingLength,
-    data: req.body.data
+    recordingLength: req.body.recordingLength ? req.body.recordingLength : 0,
+    data: req.body.data ? req.body.data : null,
+    isGroup: req.body.isGroup ? req.body.isGroup : false,
+    group: req.body.group ? req.body.group : null,
+    sharedWith: req.body.sharedWith ? req.body.sharedWith : null
   });
-
-  console.log(req.user);
 
   User.findById(req.user.id)
     .then(user => {
       if (!user) throw new Error("User could not be found!");
 
       user.transcripts.push(transcript);
+
+      if(transcript.sharedWith && transcript.sharedWith.length > 0) {
+        // Add this transcript to all users you've shared it with
+      }
+
       return user.save();
     })
     .then(user => {
