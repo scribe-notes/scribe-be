@@ -35,14 +35,20 @@ router.get("/:id", protected, (req, res) => {
         .json({ message: "A transcript with that ID does not exist!" });
 
     // Users with access to this transcript
-    const whitelist = transcript._doc.sharedWith.map(userId => {
-      userId.toString();
-    });
+    const whitelist = [];
 
-    if (
-      transcript._doc.creator.toString() !== req.user.id ||
-      !whitelist.includes(req.user.id)
-    ) {
+    let target = transcript;
+
+    while(target) {
+      whitelist.push(target._doc.creator.toString());
+      target.sharedWith.forEach(userId => {
+        whitelist.push(userId.user.toString());
+      })
+      console.log(target.parent);
+      target = target.parent;
+    }
+
+    if (!whitelist.includes(req.user.id)) {
       return res
         .status(401)
         .json({ message: "You do not have access to this transcript" });
@@ -88,7 +94,8 @@ router.post("/", protected, async (req, res) => {
       data: req.body.data ? req.body.data : null,
       isGroup: req.body.isGroup ? req.body.isGroup : false,
       group: req.body.group ? req.body.group : null,
-      sharedWith
+      sharedWith,
+      parent: req.body.parent ? req.body.parent : null
     });
 
     let user = await User.findById(req.user.id);
