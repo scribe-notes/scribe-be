@@ -24,6 +24,11 @@ const TranscriptSchema = new mongoose.Schema({
   data: {
     type: String
   },
+  // Parent of this transcript instance, if any
+  parent: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Transcript"
+  },
   // Is this a parent directory to a group of transcripts?
   isGroup: {
     type: Boolean,

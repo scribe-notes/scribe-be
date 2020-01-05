@@ -75,8 +75,9 @@ router.post("/", protected, async (req, res) => {
           );
         else {
           // Make sure not to add the owner into the shared list
-          if(user.userId !== req.user.id) sharedWith.push({ user: user.userId, edit: user.edit });
-        } 
+          if (user.userId !== req.user.id)
+            sharedWith.push({ user: user.userId, edit: user.edit });
+        }
       });
     } else sharedWith = [];
 
@@ -193,23 +194,29 @@ router.post("/share/:id", protected, async (req, res) => {
         message: "You may not add members to another user's transcript."
       });
 
-    const preexisting = transcript._doc.sharedWith.map(share => share.user.toString());
+    const preexisting = transcript._doc.sharedWith.map(share =>
+      share.user.toString()
+    );
 
     // List of users verified to exist
     const users = [];
 
-    await Promise.all(req.body.users.map(async user => {
-      const doc = await User.findById(user.userId);
-      if (doc && !preexisting.includes(user.userId) && user.userId !== req.user.id) {
-        users.push(doc);
-        transcript.sharedWith.push({
-          user: user.userId,
-          edit: user.edit
-        });
-      }
-    }));
-
-    // console.log(users);
+    await Promise.all(
+      req.body.users.map(async user => {
+        const doc = await User.findById(user.userId);
+        if (
+          doc &&
+          !preexisting.includes(user.userId) &&
+          user.userId !== req.user.id
+        ) {
+          users.push(doc);
+          transcript.sharedWith.push({
+            user: user.userId,
+            edit: user.edit
+          });
+        }
+      })
+    );
 
     transcript = await transcript.save();
 
@@ -228,13 +235,12 @@ router.post("/share/:id", protected, async (req, res) => {
     // Return new transcript doc
     return res.status(200).json(transcript);
   } catch (err) {
-    console.log(err);
     return res.status(500).json({ message: err.message });
   }
 });
 
 // Change member permissions on transcript
-router.put("/share/:id", (req, res) => {
+router.put("/share/:id", protected, async (req, res) => {
   // Check that req.body.userId and req.body.edit exist
   // req.body should look like this:
   /*
@@ -243,17 +249,81 @@ router.put("/share/:id", (req, res) => {
       edit: false
     }
   */
-  // Look for user with that id in the transcript,
-  // then update their permission accordingly
-  // Return new transcript doc
+  try {
+    const error = checkFields(["userId", "edit"], req.body);
+
+    if (error) throw new Error(error);
+
+    if (typeof req.body.edit !== 'boolean')
+      throw new Error("Bad input: `edit` field must be a boolean");
+
+    // Look for user with that id in the transcript,
+
+    let transcript = await Transcript.findById(req.params.id);
+
+    if (!transcript)
+      throw new Error("A transcript with that ID could not be found!");
+
+    // Make sure the owner is doing this
+    if (transcript._doc.creator.toString() !== req.user.id)
+      throw new Error(
+        "You are unauthorized to change permissions on this transcript."
+      );
+
+    // then update their permission accordingly
+
+    const index = transcript.sharedWith.findIndex(
+      user => user.user.toString() === req.body.userId );
+
+    if (index === -1)
+      throw new Error("The specified user is not a member on this transcript!");
+
+    transcript.sharedWith[index].edit = req.body.edit;
+
+    transcript = await transcript.save();
+
+    // Return new transcript doc
+    return res.status(200).json(transcript);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 });
 
 // Remove member from transcript
-router.delete("/share/:id", (req, res) => {
-  // Check that req.body.userId exists
-  // Remove the transcript from that user's doc
-  // Then remove user from the transcript doc
-  // Return new transcript doc
+router.delete("/share/:id", protected, async (req, res) => {
+  try {
+    // Check that req.body.userId exists
+    const error = checkFields(["userId"], req.body);
+    if (error) throw new Error(error);
+
+    // Make sure the transcript exists
+    let transcript = await Transcript.findById(req.params.id);
+
+    if(!transcript) throw new Error('A transcript with that ID does not exist');
+
+    // Make sure the owner is doing this
+    if(transcript._doc.creator.toString() !== req.user.id)
+      throw new Error('You are not authorized to remove members from this transcript');
+
+    // Remove the transcript from that user's doc
+    const user = await User.findById(req.body.userId);
+
+    if(!user) throw new Error('A user with that ID could not be found!');
+
+    user.transcripts = user.transcripts.filter(trans => trans.toString() !== req.params.id);
+
+    await user.save();
+
+    // Then remove user from the transcript doc
+    transcript.sharedWith = transcript.sharedWith.filter(usr => usr.user.toString() !== req.body.userId);
+
+    transcript = await transcript.save();
+
+    // Return new transcript doc
+    return res.status(200).json(transcript);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 });
 
 // Delete a transcript
