@@ -1,5 +1,4 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const protected = require("../auth/protected");
 const checkFields = require("../util/checkFields");
 const updateFields = require("../util/updateFields");
