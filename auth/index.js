@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+const protected = require('./protected');
+
 const checkFields = require('../util/checkFields');
 
 const router = express.Router();
@@ -73,5 +75,18 @@ router.post('/login', (req, res) => {
     return res.status(500).json({message: err.message})
   })
 })
+
+// Refresh user
+router.get('/refresh', protected, async (req, res) => {
+  try{
+  const response = await User.findById(req.user.id);
+
+  if(!response) throw new Error("User not found!");
+
+  return res.status(200).json(response);
+  } catch (err) {
+    return res.status(500).json({message: err.message});
+  }
+});
 
 module.exports = router;
