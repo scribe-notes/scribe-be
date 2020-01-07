@@ -38,6 +38,10 @@ router.post("/users/", (req, res) => {
   User.findOne({ username: user.username })
     .then(res => {
       if (res) throw new Error("A user with that username already exists!");
+      else return User.findOne({email: user.email});
+    })
+    .then(res => {
+      if (res) throw new Error("A user with that email address already exists!");
       else return user.save();
     })
     .then(user => {
