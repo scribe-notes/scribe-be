@@ -26,8 +26,9 @@ router.get("/mine", protected, async (req, res) => {
 });
 
 // Get a transcript by id
-router.get("/:id", protected, (req, res) => {
-  Transcript.findById(req.params.id).then(transcript => {
+router.get("/:id", protected, async (req, res) => {
+  try {
+    const transcript = await Transcript.findById(req.params.id);
     if (!transcript)
       return res
         .status(404)
@@ -38,12 +39,11 @@ router.get("/:id", protected, (req, res) => {
 
     let target = transcript;
 
-    while(target) {
+    while (target) {
       whitelist.push(target._doc.creator.toString());
       target.sharedWith.forEach(userId => {
         whitelist.push(userId.user.toString());
-      })
-      console.log(target.parent);
+      });
       target = target.parent;
     }
 
@@ -53,8 +53,18 @@ router.get("/:id", protected, (req, res) => {
         .json({ message: "You do not have access to this transcript" });
     }
 
-    return res.status(200).json(transcript._doc);
-  });
+    let response;
+
+    // Check if this transcript is a group and return
+    // an array of child transcripts if it is
+    if (transcript._doc.isGroup) {
+      response = await Transcript.find({parent: req.params.id});
+    } else response = transcript._doc;
+
+    return res.status(200).json(response);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 });
 
 // Post a new transcript
@@ -260,7 +270,7 @@ router.put("/share/:id", protected, async (req, res) => {
 
     if (error) throw new Error(error);
 
-    if (typeof req.body.edit !== 'boolean')
+    if (typeof req.body.edit !== "boolean")
       throw new Error("Bad input: `edit` field must be a boolean");
 
     // Look for user with that id in the transcript,
@@ -279,7 +289,8 @@ router.put("/share/:id", protected, async (req, res) => {
     // then update their permission accordingly
 
     const index = transcript.sharedWith.findIndex(
-      user => user.user.toString() === req.body.userId );
+      user => user.user.toString() === req.body.userId
+    );
 
     if (index === -1)
       throw new Error("The specified user is not a member on this transcript!");
@@ -305,23 +316,30 @@ router.delete("/share/:id", protected, async (req, res) => {
     // Make sure the transcript exists
     let transcript = await Transcript.findById(req.params.id);
 
-    if(!transcript) throw new Error('A transcript with that ID does not exist');
+    if (!transcript)
+      throw new Error("A transcript with that ID does not exist");
 
     // Make sure the owner is doing this
-    if(transcript._doc.creator.toString() !== req.user.id)
-      throw new Error('You are not authorized to remove members from this transcript');
+    if (transcript._doc.creator.toString() !== req.user.id)
+      throw new Error(
+        "You are not authorized to remove members from this transcript"
+      );
 
     // Remove the transcript from that user's doc
     const user = await User.findById(req.body.userId);
 
-    if(!user) throw new Error('A user with that ID could not be found!');
+    if (!user) throw new Error("A user with that ID could not be found!");
 
-    user.transcripts = user.transcripts.filter(trans => trans.toString() !== req.params.id);
+    user.transcripts = user.transcripts.filter(
+      trans => trans.toString() !== req.params.id
+    );
 
     await user.save();
 
     // Then remove user from the transcript doc
-    transcript.sharedWith = transcript.sharedWith.filter(usr => usr.user.toString() !== req.body.userId);
+    transcript.sharedWith = transcript.sharedWith.filter(
+      usr => usr.user.toString() !== req.body.userId
+    );
 
     transcript = await transcript.save();
 
@@ -372,7 +390,5 @@ router.delete("/:id", protected, async (req, res) => {
     return res.status(500).json(err.message);
   }
 });
-
-
 
 module.exports = router;
