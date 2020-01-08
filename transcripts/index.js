@@ -353,7 +353,7 @@ router.delete("/:id", protected, async (req, res) => {
 
     // Remove reference of this transcript from all users
     await Promise.all(
-      targets.forEach(async userId => {
+      targets.map(async userId => {
         const target = await User.findById(userId);
         const newTranscripts = target._doc.transcripts.filter(transcript => {
           return transcript.toString() !== req.params.id;
@@ -366,10 +366,13 @@ router.delete("/:id", protected, async (req, res) => {
     // Now we may safely delete the transcript
     await Transcript.deleteOne({ _id: transcript.id });
 
-    return res.status(200).json(user._doc.transcripts);
+    return res.send(200);
   } catch (err) {
+    console.log(err);
     return res.status(500).json(err.message);
   }
 });
+
+
 
 module.exports = router;
