@@ -1,6 +1,6 @@
 const updateFields = (fields, body, doc) => {
   fields.forEach(field => {
-    if(body[field] && (typeof body[field] !== String || body[field].trim())) {
+    if(body[field] !== undefined && (typeof body[field] !== 'string' || body[field].trim())) {
       doc[field] = body[field];
     }
   })
