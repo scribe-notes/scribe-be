@@ -39,7 +39,8 @@ router.get("/:id", protected, async (req, res) => {
 
     let target = transcript;
 
-    while (target) {
+    while (target && target._doc) {
+      console.log(target._doc);
       whitelist.push(target._doc.creator.toString());
       target.sharedWith.forEach(userId => {
         whitelist.push(userId.user.toString());
@@ -58,11 +59,13 @@ router.get("/:id", protected, async (req, res) => {
     // Check if this transcript is a group and return
     // an array of child transcripts if it is
     if (transcript._doc.isGroup) {
-      response = await Transcript.find({parent: req.params.id});
-    } else response = transcript._doc;
+      const children = await Transcript.find({parent: req.params.id});
+      transcript._doc.children = children;
+    }
 
-    return res.status(200).json(response);
+    return res.status(200).json(transcript._doc);
   } catch (err) {
+    console.log(err);
     return res.status(500).json({ message: err.message });
   }
 });
