@@ -15,9 +15,11 @@ router.get("/mine", protected, async (req, res) => {
 
     if (!user) return res.status(404).json({ message: "Unable to find user!" });
 
-    const response = await Promise.all(
+    let response = await Promise.all(
       user._doc.transcripts.map(transcript => Transcript.findById(transcript))
     );
+
+    response = response.filter(transcript => !transcript.parent)
 
     return res.status(200).json(response);
   } catch (err) {
@@ -53,8 +55,6 @@ router.get("/:id", protected, async (req, res) => {
         .status(401)
         .json({ message: "You do not have access to this transcript" });
     }
-
-    let response;
 
     // Check if this transcript is a group and return
     // an array of child transcripts if it is
