@@ -123,4 +123,4 @@ These contribution guidelines have been adapted from [this good-Contributing.md-
 
 ## Frontend Documentation
 
-See [https://github.com/Lambda-School-Labs/designhub-fe](https://github.com/Lambda-School-Labs/designhub-fe) for details on the frontend of our project.
+See [here](https://github.com/Breath-Taken/BreathTaken-FE) for details on the frontend of our project.
