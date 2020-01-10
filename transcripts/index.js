@@ -19,7 +19,7 @@ router.get("/mine", protected, async (req, res) => {
       user._doc.transcripts.map(transcript => Transcript.findById(transcript))
     );
 
-    response = response.filter(transcript => !transcript.parent)
+    response = response.filter(transcript => !transcript || !transcript.parent)
 
     return res.status(200).json(response);
   } catch (err) {
