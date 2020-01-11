@@ -42,7 +42,6 @@ router.get("/:id", protected, async (req, res) => {
     let target = transcript;
 
     while (target && target._doc) {
-      console.log(target._doc);
       whitelist.push(target._doc.creator.toString());
       target.sharedWith.forEach(userId => {
         whitelist.push(userId.user.toString());

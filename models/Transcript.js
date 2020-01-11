@@ -12,7 +12,7 @@ const TranscriptSchema = new mongoose.Schema({
   },
   createdAt: {
     type: Date,
-    default: Date.now()
+    default: Date.now
   },
   // This is the time it took to record this transcript
   // in seconds
