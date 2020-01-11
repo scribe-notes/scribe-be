@@ -388,9 +388,9 @@ router.delete("/:id", protected, async (req, res) => {
     );
 
     // Now we may safely delete the transcript
-    await Transcript.deleteOne({ id: transcript.id });
+    await Transcript.deleteOne({ _id: transcript.id });
 
-    return res.send(200);
+    return res.sendStatus(200);
   } catch (err) {
     console.log(err);
     return res.status(500).json(err.message);
