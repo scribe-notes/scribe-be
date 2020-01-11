@@ -114,6 +114,9 @@ router.post("/", protected, async (req, res) => {
 
     if (!user) throw new Error("User could not be found!");
 
+    if(transcript === null)
+      throw new Error('Bad request - Resulted in null transcript')
+
     user.transcripts.push(transcript);
 
     if (transcript.sharedWith && transcript.sharedWith.length > 0) {
