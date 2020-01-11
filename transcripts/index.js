@@ -16,7 +16,7 @@ router.get("/mine", protected, async (req, res) => {
     if (!user) return res.status(404).json({ message: "Unable to find user!" });
 
     let response = await Promise.all(
-      user._doc.transcripts.map(transcript => Transcript.findById(transcript))
+      user._doc.transcripts.map(async transcript => await Transcript.findById(transcript))
     );
 
     response = response.filter(transcript => !transcript || !transcript.parent)
