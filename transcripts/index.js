@@ -19,7 +19,7 @@ router.get("/mine", protected, async (req, res) => {
       user._doc.transcripts.map(async transcript => await Transcript.findById(transcript))
     );
 
-    response = response.filter(transcript => !transcript || !transcript.parent)
+    response = response.filter(transcript => transcript !== null || !transcript.parent)
 
     return res.status(200).json(response);
   } catch (err) {
@@ -388,7 +388,7 @@ router.delete("/:id", protected, async (req, res) => {
     );
 
     // Now we may safely delete the transcript
-    await Transcript.deleteOne({ _id: transcript.id });
+    await Transcript.deleteOne({ id: transcript.id });
 
     return res.send(200);
   } catch (err) {
