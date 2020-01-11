@@ -80,6 +80,12 @@ router.post("/", protected, async (req, res) => {
     const error = checkFields(requiredFields, req.body);
     if (error) throw new Error(error);
 
+    if(req.body.parent) {
+      const parent = await Transcript.findOne({_id: req.body.parent});
+      if(!parent)
+        throw new Error('The parent specified does not exist!');
+    }
+
     // A parsed list of invited users
     let sharedWith = [];
 
