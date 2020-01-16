@@ -29,7 +29,7 @@ To get the server running locally:
 | -:| :-| :-: | :- | :- | :- |
 | GET | `/transcripts/mine` | Yes | Retrieve user's transcripts | N/A | Token bearer's transcripts |
 | GET | `/transcripts/:id` | Yes | Retrieve transcript by id | A transcript `id` in paramas | Transcript object
-| POST | `/transcripts` | Yes | Create new transcript | `{ title (string), data (string), recordingLength (optional int) , isGroup (optional bool), parent (optional string), sharedWith (optional array[{ userId (string), edit(bool) }]) }` | Token bearer's transcripts |
+| POST | `/transcripts` | Yes | Create new transcript | `{ title (string), data (string), recordingLength (optional int) , isGroup (optional bool), parent (optional string), sharedWith (optional array[{ userId (string), edit(bool) }]) }` | Newly created transcript |
 | PUT | `/transcripts/:id` | Yes | Update existing transcript | `{ title (optional string), data (optional string) }` | Newly updated transcript |
 | POST | `/transcripts/share/:id` | Yes | Add member(s) to a transcript | params: `id` (transcript ID), body: `{ users: [ { userId (string), edit (bool) }, ... ] }` | Newly updated transcript |
 | PUT | `/transcripts/share/:id` | Yes | Update member permissions on transcript | params: `id` (transcript ID), body: `{ userId (string), edit(bool) }` | Newly updated transcript |
