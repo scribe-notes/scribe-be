@@ -393,13 +393,13 @@ router.delete("/:id", protected, async (req, res) => {
     );
 
     // Delete this transcripts children
-    const toDelete = transcript.children ? transcript.children : [];
+    const toDelete = transcript.group ? transcript.group : [];
 
-    toDelete.push(transcript);
+    toDelete.push(transcript._id);
 
     // Now we may safely delete the transcripts
-    await Promise.all(toDelete.map(async transcript => {
-      await Transcript.deleteOne({_id: transcript.id});
+    await Promise.all(toDelete.map(async transcriptId => {
+      await Transcript.deleteOne({_id: transcriptId});
     }));
 
     return res.sendStatus(200);
