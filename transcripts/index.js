@@ -392,8 +392,15 @@ router.delete("/:id", protected, async (req, res) => {
       })
     );
 
-    // Now we may safely delete the transcript
-    await Transcript.deleteOne({ _id: transcript.id });
+    // Delete this transcripts children
+    const toDelete = transcript.children ? transcript.children : [];
+
+    toDelete.push(transcript);
+
+    // Now we may safely delete the transcripts
+    await Promise.all(toDelete.map(async transcript => {
+      await Transcript.deleteOne({_id: transcript.id});
+    }));
 
     return res.sendStatus(200);
   } catch (err) {
