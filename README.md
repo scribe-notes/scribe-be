@@ -3,7 +3,10 @@
 - Deployed project can be found [here](https://notaking-with-scribe.netlify.com/)
 - API deployed at https://hackathon-livenotes.herokuapp.com/
 
-*Testing to be implemented...*
+# Testing
+-End to end Tests with Cypress
+-Integration Testing with Cypress
+-Endpoint tests with supertests
 
 # Installation Instructions
 
