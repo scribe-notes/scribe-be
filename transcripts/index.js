@@ -1,25 +1,29 @@
-const express = require("express");
-const protected = require("../auth/protected");
-const checkFields = require("../util/checkFields");
-const updateFields = require("../util/updateFields");
+const express = require('express');
+const protected = require('../auth/protected');
+const checkFields = require('../util/checkFields');
+const updateFields = require('../util/updateFields');
 
-const Transcript = require("../models/Transcript");
-const User = require("../models/User");
+const Transcript = require('../models/Transcript');
+const User = require('../models/User');
 
 const router = express.Router();
 
 // Get all scripts belonging to token bearer
-router.get("/mine", protected, async (req, res) => {
+router.get('/mine', protected, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
 
-    if (!user) return res.status(404).json({ message: "Unable to find user!" });
+    if (!user) return res.status(404).json({ message: 'Unable to find user!' });
 
     let response = await Promise.all(
-      user._doc.transcripts.map(async transcript => await Transcript.findById(transcript))
+      user._doc.transcripts.map(
+        async transcript => await Transcript.findById(transcript)
+      )
     );
 
-    response = response.filter(transcript => transcript !== null && !transcript.parent)
+    response = response.filter(
+      transcript => transcript !== null && !transcript.parent
+    );
 
     return res.status(200).json(response);
   } catch (err) {
@@ -28,13 +32,13 @@ router.get("/mine", protected, async (req, res) => {
 });
 
 // Get a transcript by id
-router.get("/:id", protected, async (req, res) => {
+router.get('/:id', protected, async (req, res) => {
   try {
     const transcript = await Transcript.findById(req.params.id);
     if (!transcript)
       return res
         .status(404)
-        .json({ message: "A transcript with that ID does not exist!" });
+        .json({ message: 'A transcript with that ID does not exist!' });
 
     // Users with access to this transcript
     const whitelist = [];
@@ -52,27 +56,29 @@ router.get("/:id", protected, async (req, res) => {
     if (!whitelist.includes(req.user.id)) {
       return res
         .status(401)
-        .json({ message: "You do not have access to this transcript" });
+        .json({ message: 'You do not have access to this transcript' });
     }
 
     // Check if this transcript is a group and return
     // an array of child transcripts if it is
     if (transcript._doc.isGroup) {
-      const children = await Transcript.find({parent: req.params.id});
+      const children = await Transcript.find({ parent: req.params.id });
       transcript._doc.children = children;
     }
 
     // Replace parent property with the parent object
     let parent = await Transcript.findById(transcript.parent);
 
-    parent = {
-      title: parent.title,
-      _id: parent._id,
-      creator: parent.creator,
-      parent: parent.parent,
-    }
+    if (parent) {
+      parent = {
+        title: parent.title,
+        _id: parent._id,
+        creator: parent.creator,
+        parent: parent.parent
+      };
 
-    transcript._doc.parent = parent;
+      transcript._doc.parent = parent;
+    }
 
     return res.status(200).json(transcript._doc);
   } catch (err) {
@@ -82,20 +88,19 @@ router.get("/:id", protected, async (req, res) => {
 });
 
 // Post a new transcript
-router.post("/", protected, async (req, res) => {
+router.post('/', protected, async (req, res) => {
   try {
-    const requiredFields = ["title"];
+    const requiredFields = ['title'];
 
     // If this isn't a container/group of transcripts, require the following
-    if (!req.body.isGroup) requiredFields.push("data", "recordingLength");
+    if (!req.body.isGroup) requiredFields.push('data', 'recordingLength');
 
     const error = checkFields(requiredFields, req.body);
     if (error) throw new Error(error);
 
-    if(req.body.parent) {
-      const parent = await Transcript.findOne({_id: req.body.parent});
-      if(!parent)
-        throw new Error('The parent specified does not exist!');
+    if (req.body.parent) {
+      const parent = await Transcript.findOne({ _id: req.body.parent });
+      if (!parent) throw new Error('The parent specified does not exist!');
     }
 
     // A parsed list of invited users
@@ -104,9 +109,9 @@ router.post("/", protected, async (req, res) => {
     // Make sure the provided sharedWith array contains valid data
     if (req.body.sharedWith && req.body.sharedWith.length > 0) {
       req.body.sharedWith.forEach(user => {
-        if (checkFields(["userId", "edit"], user))
+        if (checkFields(['userId', 'edit'], user))
           throw new Error(
-            "Bad input: sharedWith should be an array of objects, each with valid fields `userId`(String) and `edit`(bool)"
+            'Bad input: sharedWith should be an array of objects, each with valid fields `userId`(String) and `edit`(bool)'
           );
         else {
           // Make sure not to add the owner into the shared list
@@ -129,10 +134,10 @@ router.post("/", protected, async (req, res) => {
 
     let user = await User.findById(req.user.id);
 
-    if (!user) throw new Error("User could not be found!");
+    if (!user) throw new Error('User could not be found!');
 
-    if(transcript === null)
-      throw new Error('Bad request - Resulted in null transcript')
+    if (transcript === null)
+      throw new Error('Bad request - Resulted in null transcript');
 
     user.transcripts.push(transcript);
 
@@ -167,7 +172,7 @@ router.post("/", protected, async (req, res) => {
 });
 
 // Update a transcript
-router.put("/:id", protected, (req, res) => {
+router.put('/:id', protected, (req, res) => {
   Transcript.findById(req.params.id)
     .then(transcript => {
       const isOwner = transcript._doc.creator.toString() === req.user.id;
@@ -181,9 +186,9 @@ router.put("/:id", protected, (req, res) => {
       if (!isOwner && !isAuthorized)
         return res
           .status(401)
-          .json({ message: "You may not modify this transcript." });
+          .json({ message: 'You may not modify this transcript.' });
 
-      const fields = ["title", "data"];
+      const fields = ['title', 'data'];
 
       updateFields(fields, req.body, transcript);
 
@@ -198,12 +203,12 @@ router.put("/:id", protected, (req, res) => {
 });
 
 // Add member(s) to transcript
-router.post("/share/:id", protected, async (req, res) => {
+router.post('/share/:id', protected, async (req, res) => {
   // Check that req.body.users exists
   try {
-    if (checkFields(["users"], req.body))
+    if (checkFields(['users'], req.body))
       throw new Error(
-        "Please provide a users array of objects, each with fields `userId`(String) and `edit`(bool)"
+        'Please provide a users array of objects, each with fields `userId`(String) and `edit`(bool)'
       );
 
     // Each user element should be an object:
@@ -214,9 +219,9 @@ router.post("/share/:id", protected, async (req, res) => {
     }
   */
     req.body.users.forEach(user => {
-      if (checkFields(["userId", "edit"], user))
+      if (checkFields(['userId', 'edit'], user))
         throw new Error(
-          "Bad input: Please provide a users array of objects, each with fields `userId`(String) and `edit`(bool)"
+          'Bad input: Please provide a users array of objects, each with fields `userId`(String) and `edit`(bool)'
         );
     });
 
@@ -225,7 +230,7 @@ router.post("/share/:id", protected, async (req, res) => {
     let transcript = await Transcript.findById(req.params.id);
 
     if (!transcript)
-      throw new Error("A transcript with that ID could not be found.");
+      throw new Error('A transcript with that ID could not be found.');
 
     // Make sure this is the owner making this request
     if (!transcript._doc.creator.toString() === req.user.id)
@@ -264,7 +269,7 @@ router.post("/share/:id", protected, async (req, res) => {
     await Promise.all(
       users.map(async user => {
         if (!user._doc.transcripts.includes(transcript.id)) {
-          console.log("adding transcript to user...");
+          console.log('adding transcript to user...');
           user.transcripts.push(transcript);
           await user.save();
         }
@@ -279,7 +284,7 @@ router.post("/share/:id", protected, async (req, res) => {
 });
 
 // Change member permissions on transcript
-router.put("/share/:id", protected, async (req, res) => {
+router.put('/share/:id', protected, async (req, res) => {
   // Check that req.body.userId and req.body.edit exist
   // req.body should look like this:
   /*
@@ -289,24 +294,24 @@ router.put("/share/:id", protected, async (req, res) => {
     }
   */
   try {
-    const error = checkFields(["userId", "edit"], req.body);
+    const error = checkFields(['userId', 'edit'], req.body);
 
     if (error) throw new Error(error);
 
-    if (typeof req.body.edit !== "boolean")
-      throw new Error("Bad input: `edit` field must be a boolean");
+    if (typeof req.body.edit !== 'boolean')
+      throw new Error('Bad input: `edit` field must be a boolean');
 
     // Look for user with that id in the transcript,
 
     let transcript = await Transcript.findById(req.params.id);
 
     if (!transcript)
-      throw new Error("A transcript with that ID could not be found!");
+      throw new Error('A transcript with that ID could not be found!');
 
     // Make sure the owner is doing this
     if (transcript._doc.creator.toString() !== req.user.id)
       throw new Error(
-        "You are unauthorized to change permissions on this transcript."
+        'You are unauthorized to change permissions on this transcript.'
       );
 
     // then update their permission accordingly
@@ -316,7 +321,7 @@ router.put("/share/:id", protected, async (req, res) => {
     );
 
     if (index === -1)
-      throw new Error("The specified user is not a member on this transcript!");
+      throw new Error('The specified user is not a member on this transcript!');
 
     transcript.sharedWith[index].edit = req.body.edit;
 
@@ -330,28 +335,28 @@ router.put("/share/:id", protected, async (req, res) => {
 });
 
 // Remove member from transcript
-router.delete("/share/:id", protected, async (req, res) => {
+router.delete('/share/:id', protected, async (req, res) => {
   try {
     // Check that req.body.userId exists
-    const error = checkFields(["userId"], req.body);
+    const error = checkFields(['userId'], req.body);
     if (error) throw new Error(error);
 
     // Make sure the transcript exists
     let transcript = await Transcript.findById(req.params.id);
 
     if (!transcript)
-      throw new Error("A transcript with that ID does not exist");
+      throw new Error('A transcript with that ID does not exist');
 
     // Make sure the owner is doing this
     if (transcript._doc.creator.toString() !== req.user.id)
       throw new Error(
-        "You are not authorized to remove members from this transcript"
+        'You are not authorized to remove members from this transcript'
       );
 
     // Remove the transcript from that user's doc
     const user = await User.findById(req.body.userId);
 
-    if (!user) throw new Error("A user with that ID could not be found!");
+    if (!user) throw new Error('A user with that ID could not be found!');
 
     user.transcripts = user.transcripts.filter(
       trans => trans.toString() !== req.params.id
@@ -374,13 +379,13 @@ router.delete("/share/:id", protected, async (req, res) => {
 });
 
 // Delete a transcript
-router.delete("/:id", protected, async (req, res) => {
+router.delete('/:id', protected, async (req, res) => {
   try {
     const transcript = await Transcript.findById(req.params.id);
     if (!transcript)
       return res
         .status(404)
-        .json({ message: "A transcript with that ID does not exist!" });
+        .json({ message: 'A transcript with that ID does not exist!' });
     if (!transcript._doc.creator.toString() === req.user.id)
       return res
         .status(401)
@@ -410,9 +415,11 @@ router.delete("/:id", protected, async (req, res) => {
     toDelete.push(transcript._id);
 
     // Now we may safely delete the transcripts
-    await Promise.all(toDelete.map(async transcriptId => {
-      await Transcript.deleteOne({_id: transcriptId});
-    }));
+    await Promise.all(
+      toDelete.map(async transcriptId => {
+        await Transcript.deleteOne({ _id: transcriptId });
+      })
+    );
 
     return res.sendStatus(200);
   } catch (err) {
