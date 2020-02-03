@@ -62,6 +62,18 @@ router.get("/:id", protected, async (req, res) => {
       transcript._doc.children = children;
     }
 
+    // Replace parent property with the parent object
+    let parent = await Transcript.findById(transcript.parent);
+
+    parent = {
+      title: parent.title,
+      _id: parent._id,
+      creator: parent.creator,
+      parent: parent.parent,
+    }
+
+    transcript._doc.parent = parent;
+
     return res.status(200).json(transcript._doc);
   } catch (err) {
     console.log(err);
